@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """MTGTabletop v0.3.
 Author: Matteo Pacini <m@matteopacini.me>.
@@ -26,13 +26,15 @@ from docopt import docopt
 import codecs
 import io
 import re
-import urllib2
+import urllib.request
+import urllib.error
+import urllib.parse
 
 from bs4 import BeautifulSoup
 from PIL import Image
 from random import choice
 from unidecode import unidecode
-from urllib import quote
+from urllib.parse import quote
 
 
 ##############
@@ -44,7 +46,7 @@ class UnavailableCardImageException(Exception):
 
 
 def download_file(url):
-    response = urllib2.urlopen(url)
+    response = urllib.request.urlopen(url)
     return response.read()
 
 
@@ -70,7 +72,7 @@ def fetch_basic_land_image_urls(card_name, verbose):
     soup = BeautifulSoup(html, 'html.parser')
     for link in soup.findAll('a', href=True):
         if link.string == card_name:
-            regex = re.compile('\/[a-z0-9]+\/en\/[0-9a-b]+\.html')
+            regex = re.compile('/[a-z0-9]+/en/[0-9a-b]+\.html')
             html = download_file(
                 'http://magiccards.info%s' % link.attrs['href']
             )
@@ -86,9 +88,9 @@ def fetch_basic_land_image_urls(card_name, verbose):
                         (tokens[1], tokens[0], tokens[2])
                     )
             if verbose:
-                print "[VERBOSE] URLs found for card '%s':" % card_name
+                print("[VERBOSE] URLs found for card '%s':" % card_name)
                 for url in urls:
-                    print "[VERBOSE] %s" % url
+                    print("[VERBOSE] %s" % url)
             return urls
     return None
 
@@ -101,7 +103,7 @@ def read_deck(fname):
         lines = \
             [l.strip() for l in f.readlines() if not l.startswith('//')
                 and not l.startswith('SB')]
-        lines = filter(None, lines)
+        lines = [_f for _f in lines if _f]
         # Parse deck entries.
         for line in lines:
             tokens = line.split(' ', 1)
@@ -111,7 +113,7 @@ def read_deck(fname):
 
 def pretty_print_deck(entries):
     for entry in entries:
-        print "%d x '%s'" % (entry[0], entry[1])
+        print("%d x '%s'" % (entry[0], entry[1]))
 
 
 def fetch_image(url):
@@ -131,12 +133,12 @@ def fetch_images(entries, randomise_lands, verbose):
             for i in range(0, entry[0]):
                 chosen_url = choice(urls)
                 if verbose:
-                    print '[VERBOSE] Random lands (%s):' % entry[1]
-                    print '[VERBOSE] Index %d URL %s' % (i, chosen_url)
+                    print('[VERBOSE] Random lands (%s):' % entry[1])
+                    print('[VERBOSE] Index %d URL %s' % (i, chosen_url))
                 processed_entries.append((1, fetch_image(chosen_url)))
         else:
             if verbose:
-                print "[VERBOSE] Fetching image for card '%s'..." % entry[1]
+                print("[VERBOSE] Fetching image for card '%s'..." % entry[1])
             url = fetch_card_image_url(entry[1])
             img = fetch_image(url)
             if not img:
@@ -202,7 +204,7 @@ def stitch_deck(entries, output_fpath, verbose):
             current_card_count += 1
 
     if verbose:
-        print '[VERBOSE] Stiched images count: %d.' % verbose_count
+        print('[VERBOSE] Stiched images count: %d.' % verbose_count)
 
     # Fetch and insert hidden card
 
@@ -225,13 +227,14 @@ def export_deck(entries, basename, verbose):
     decks = split_deck_if_necessary(entries)
     deck_count = 0
     for deck in decks:
-        print 'Deck face n. %d size: %d.' % (deck_count, no_of_cards(deck))
+        print('Deck face n. %d size: %d.' % (deck_count, no_of_cards(deck)))
         stitch_deck(
             deck,
             '%s_%d.jpg' % (basename, deck_count),
             verbose=verbose
         )
         deck_count += 1
+
 
 if __name__ == '__main__':
 
@@ -245,21 +248,21 @@ if __name__ == '__main__':
 
     for deck in arguments['DECK']:
 
-        print "Processing deck '%s'..." % deck
+        print("Processing deck '%s'..." % deck)
 
         entries = read_deck(deck)
 
         if verbose:
             pretty_print_deck(entries)
 
-        print 'Fetching images... this may take a while!'
+        print('Fetching images... this may take a while!')
 
         try:
             entries = fetch_images(entries, randomise_lands, verbose)
         except UnavailableCardImageException as e:
-            print '[ERROR] %s' % e
+            print('[ERROR] %s' % e)
             continue
 
-        print 'Exporting Tabletop Simulator deck faces...'
+        print('Exporting Tabletop Simulator deck faces...')
 
         export_deck(entries, deck.split('.', 1)[0], verbose)
